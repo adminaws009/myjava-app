@@ -1,51 +1,33 @@
-name: Download frontend task definition
+name: Update ECS Service with Load Balancer and Task Count
 
 on:
   push:
     branches:
-      - main
+      - main  # Change this to your preferred branch
 
 jobs:
-  deploy:
+  update-ecs-service:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Frontend Task Definition
-        run: cat frontend_task_definition.json > frontend-task-definition.json
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Render Frontend ECS Task Definition
-        id: frontend-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+      # Here, you might have a step to build your Docker image if needed
+
+      - name: Deploy Amazon ECS frontend task definition
+        id: deploy-ecs-task-def
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: frontend_task_definition.json
-          container-name: foodapp
-          image: ${{ steps.build-image.outputs.image }}
+          task-definition: ${{ github.sha }}
+          service: arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/food-order-app/myfoodapp
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          force-new-deployment: true
 
-      - name: List ECS Services
-        run: aws ecs list-services --cluster ${{ env.ECS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
-
-      - name: Create or Update ECS Service
-        id: create-update-ecs-service
+      - name: Update ECS service with load balancer and task count
+        id: update-ecs-service
         run: |
-          # Check if the service exists
-          if aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_FRONTEND_SERVICE }} --region ${{ secrets.AWS_REGION }} 2>&1 | grep -q 'services": \[\]'; then
-            # Create the ECS service if it doesn't exist
-            aws ecs create-service --cluster ${{ env.ECS_CLUSTER }} --service-name ${{ env.ECS_FRONTEND_SERVICE }} --task-definition ${{ steps.frontend-task-def.outputs.task-definition-arn }} --desired-count 2 --region ${{ secrets.AWS_REGION }}
-          else
-            # Update the ECS service if it exists
-            TASK_DEFINITION_ARN=$(aws ecs describe-task-definition --task-definition "${{ steps.frontend-task-def.outputs.task-definition }}" --query 'taskDefinition.taskDefinitionArn' --output text)
-            aws ecs update-service \
-              --cluster ${{ env.ECS_CLUSTER }} \
-              --service ${{ env.ECS_FRONTEND_SERVICE }} \
-              --desired-count 2 \  # You're setting the desired count of tasks to 2
-              --region ${{ secrets.AWS_REGION }} \
-              --task-definition $TASK_DEFINITION_ARN \
-              --load-balancers '[{
-                "targetGroupArn": "${{ secrets.TARGET_GROUP_ARN }}",
-                "containerName": "${{ env.CONTAINER_NAME }}",
-                "containerPort": ${{ env.CONTAINER_PORT }}
-              }]'
-          fi
-
-      - name: Wait for Service Stability
-        run: aws ecs wait services-stable --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_FRONTEND_SERVICE }} --region ${{ secrets.AWS_REGION }}
+          aws ecs update-service --cluster <CLUSTER_NAME> --service <SERVICE_NAME> --task-definition ${{ github.sha }} --desired-count 2
+          aws ecs create-service-registry --registry-name <REGISTRY_NAME> --container-name <CONTAINER_NAME> --container-port <CONTAINER_PORT>
+          aws ecs create-service --cluster <CLUSTER_NAME> --service-name <SERVICE_NAME> --launch-type FARGATE --desired-count 2 --task-definition ${{ github.sha }} --load-balancers targetGroupArn=<TARGET_GROUP_ARN>,containerName=<CONTAINER_NAME>,containerPort=<CONTAINER_PORT>
