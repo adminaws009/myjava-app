@@ -9,6 +9,20 @@ jobs:
   update-ecs-service:
     runs-on: ubuntu-latest
 
+    env:
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      ECR_REPOSITORY: containers
+      IMAGE_TAG: ${{ github.sha }}
+      ECS_CLUSTER: food-order-app
+      ECS_BACKEND_SERVICE: backend-service
+      ECS_BACKEND_TASK_DEFINITION: backend_task_definition.json
+      ECS_DATABASE_SERVICE: database-service
+      ECS_DATABASE_TASK_DEFINITION: database_task_definition.json
+      ECS_FRONTEND_SERVICE: myfoodapp
+      ECS_FRONTEND_TASK_DEFINITION: frontend_task_definition.json
+      CONTAINER_NAME: foodapp
+      CONTAINER_PORT: 8080
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -19,8 +33,8 @@ jobs:
         id: deploy-ecs-task-def
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
-          task-definition: ${{ github.sha }}
-          service: arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/food-order-app/myfoodapp
+          task-definition: ${{ env.ECS_FRONTEND_TASK_DEFINITION }}
+          service: arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/${{ env.ECS_FRONTEND_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
           force-new-deployment: true
@@ -28,6 +42,6 @@ jobs:
       - name: Update ECS service with load balancer and task count
         id: update-ecs-service
         run: |
-          aws ecs update-service --cluster <CLUSTER_NAME> --service <SERVICE_NAME> --task-definition ${{ github.sha }} --desired-count 2
-          aws ecs create-service-registry --registry-name <REGISTRY_NAME> --container-name <CONTAINER_NAME> --container-port <CONTAINER_PORT>
-          aws ecs create-service --cluster <CLUSTER_NAME> --service-name <SERVICE_NAME> --launch-type FARGATE --desired-count 2 --task-definition ${{ github.sha }} --load-balancers targetGroupArn=<TARGET_GROUP_ARN>,containerName=<CONTAINER_NAME>,containerPort=<CONTAINER_PORT>
+          aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service ${{ env.ECS_FRONTEND_SERVICE }} --task-definition ${{ env.ECS_FRONTEND_TASK_DEFINITION }} --desired-count 2
+          aws ecs create-service-registry --registry-name ${{ env.ECR_REGISTRY }} --container-name ${{ env.CONTAINER_NAME }} --container-port ${{ env.CONTAINER_PORT }}
+          aws ecs create-service --cluster ${{ env.ECS_CLUSTER }} --service-name ${{ env.ECS_FRONTEND_SERVICE }} --launch-type FARGATE --desired-count 2 --task-definition ${{ env.ECS_FRONTEND_TASK_DEFINITION }} --load-balancers targetGroupArn=<TARGET_GROUP_ARN>,containerName=${{ env.CONTAINER_NAME }},containerPort=${{ env.CONTAINER_PORT }}
