@@ -1,0 +1,28 @@
+name: Update ECS Service with Load Balancer and Task Definition
+on:
+  push:
+    branches:
+      - main # You can change this to the branch you prefer
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: <YOUR_AWS_REGION>
+
+      - name: Update ECS task definition
+        run: |
+          aws ecs register-task-definition --family <YOUR_TASK_DEFINITION_FAMILY> --container-definitions file://<PATH_TO_UPDATED_CONTAINER_DEFINITIONS_FILE>.json
+
+      - name: Update ECS service with load balancer and new task definition
+        run: |
+          aws ecs update-service --cluster <YOUR_ECS_CLUSTER_NAME> --service <YOUR_ECS_SERVICE_NAME> --task-definition <UPDATED_TASK_DEFINITION_REVISION>
+          aws ecs create-service --cluster <YOUR_ECS_CLUSTER_NAME> --service-name <YOUR_ECS_SERVICE_NAME> --launch-type FARGATE --desired-count <DESIRED_COUNT_OF_TASKS> --network-configuration "awsvpcConfiguration={subnets=[<YOUR_SUBNET_ID>],securityGroups=[<YOUR_SECURITY_GROUP_ID>]}" --load-balancers targetGroupArn=<YOUR_TARGET_GROUP_ARN>,containerName=<YOUR_CONTAINER_NAME>,containerPort=<YOUR_CONTAINER_PORT>
