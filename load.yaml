@@ -45,3 +45,26 @@ jobs:
           aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service ${{ env.ECS_FRONTEND_SERVICE }} --task-definition ${{ env.ECS_FRONTEND_TASK_DEFINITION }} --desired-count 2
           aws ecs create-service-registry --registry-name ${{ env.ECR_REGISTRY }} --container-name ${{ env.CONTAINER_NAME }} --container-port ${{ env.CONTAINER_PORT }}
           aws ecs create-service --cluster ${{ env.ECS_CLUSTER }} --service-name ${{ env.ECS_FRONTEND_SERVICE }} --launch-type FARGATE --desired-count 2 --task-definition ${{ env.ECS_FRONTEND_TASK_DEFINITION }} --load-balancers targetGroupArn=<TARGET_GROUP_ARN>,containerName=${{ env.CONTAINER_NAME }},containerPort=${{ env.CONTAINER_PORT }}
+
+
+
+
+
+ 
+- name: Update ECS service
+  id: update-ecs-service
+  run: |
+    # Update or create ECS service with the new task definition and load balancer
+    aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} \
+                           --service ${{ env.ECS_FRONTEND_SERVICE }} \
+                           --task-definition ${{ steps.frontend-task-def.outputs.task-definition }} \
+                           --desired-count 2 \
+                           --load-balancers targetGroupArn=${{ secrets.TARGET_GROUP_ARN }},containerName=${{ env.CONTAINER_NAME }},containerPort=${{ env.CONTAINER_PORT }}
+# Wait for the ECS service to become stable
+    aws ecs wait services-stable --cluster ${{ secrets.ECS_CLUSTER }} --services ${{ secrets.ECS_FRONTEND_SERVICE }}
+    
+
+
+
+
+          
