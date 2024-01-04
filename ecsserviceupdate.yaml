@@ -1,0 +1,19 @@
+   - name: Update ECS service Backend
+      id: backend-update-ecs-service
+      run: |
+        # Update or create ECS service with the new task definition and load balancer
+        aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} \
+                               --service ${{ env.ECS_BACKEND_SERVICE }} \
+                               --task-definition mybackend \
+                               --desired-count 1 \
+                               --load-balancers targetGroupArn=${{ secrets.TARGET_GROUP_ARN_BACKEND }},containerName=${{ env.CONTAINER_NAME_BACKEND }},containerPort=${{ env.CONTAINER_PORT_BACKEND }} \
+                               --enable-service-discovery \
+                               --service-registries '[{"registryArn":"arn:aws:servicediscovery:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:service/${{ env.ECS_NAMESPACE }}/backend","containerName":"backend","containerPort":8080}]'
+    # Wait for the ECS service to become stable
+    
+
+
+
+
+
+
